@@ -1,6 +1,6 @@
 import { Course } from "@/types/course";
 import { User, UserWithPassword, RegisterData } from "@/types/user";
-import pool from "./db";
+import { getPool } from "./db";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { hashPassword } from "./auth";
@@ -14,13 +14,13 @@ async function initializeDatabase() {
   try {
     const schemaPath = join(process.cwd(), "src/lib/schema.sql");
     const schema = readFileSync(schemaPath, "utf-8");
-    await pool.query(schema);
+    await getPool().query(schema);
   } catch (error) {
     // If schema file doesn't exist or table already exists, that's okay
     // Try to create table directly
     try {
       // Create users table
-      await pool.query(`
+      await getPool().query(`
         CREATE TABLE IF NOT EXISTS users (
           id VARCHAR(255) PRIMARY KEY,
           email VARCHAR(255) UNIQUE NOT NULL,
@@ -32,7 +32,7 @@ async function initializeDatabase() {
         CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
       `);
       // Create courses table
-      await pool.query(`
+      await getPool().query(`
         CREATE TABLE IF NOT EXISTS courses (
           id VARCHAR(255) PRIMARY KEY,
           title VARCHAR(255) NOT NULL,
@@ -56,7 +56,7 @@ initializeDatabase();
 
 export async function getAllCourses(): Promise<Course[]> {
   try {
-    const result = await pool.query(
+    const result = await getPool().query(
       'SELECT id, title, description, instructor, duration, price, "createdAt" FROM courses ORDER BY "createdAt" DESC'
     );
     return result.rows.map((row) => ({
@@ -76,7 +76,7 @@ export async function getAllCourses(): Promise<Course[]> {
 
 export async function getCourseById(id: string): Promise<Course | undefined> {
   try {
-    const result = await pool.query(
+    const result = await getPool().query(
       'SELECT id, title, description, instructor, duration, price, "createdAt" FROM courses WHERE id = $1',
       [id]
     );
@@ -106,7 +106,7 @@ export async function createCourse(
     const id = Date.now().toString();
     const createdAt = new Date().toISOString();
     
-    await pool.query(
+    await getPool().query(
       'INSERT INTO courses (id, title, description, instructor, duration, price, "createdAt") VALUES ($1, $2, $3, $4, $5, $6, $7)',
       [
         id,
@@ -170,7 +170,7 @@ export async function updateCourse(
     values.push(id);
     const query = `UPDATE courses SET ${fields.join(", ")} WHERE id = $${paramIndex} RETURNING id, title, description, instructor, duration, price, "createdAt"`;
 
-    const result = await pool.query(query, values);
+    const result = await getPool().query(query, values);
 
     if (result.rows.length === 0) {
       return null;
@@ -194,7 +194,7 @@ export async function updateCourse(
 
 export async function deleteCourse(id: string): Promise<boolean> {
   try {
-    const result = await pool.query("DELETE FROM courses WHERE id = $1", [id]);
+    const result = await getPool().query("DELETE FROM courses WHERE id = $1", [id]);
     return result.rowCount !== null && result.rowCount > 0;
   } catch (error) {
     console.error("Error deleting course:", error);
@@ -205,7 +205,7 @@ export async function deleteCourse(id: string): Promise<boolean> {
 // User functions
 export async function getUserByEmail(email: string): Promise<UserWithPassword | undefined> {
   try {
-    const result = await pool.query(
+    const result = await getPool().query(
       'SELECT id, email, name, password, role, "createdAt" FROM users WHERE LOWER(email) = LOWER($1)',
       [email]
     );
@@ -229,7 +229,7 @@ export async function getUserByEmail(email: string): Promise<UserWithPassword | 
 
 export async function getUserById(id: string): Promise<User | undefined> {
   try {
-    const result = await pool.query(
+    const result = await getPool().query(
       'SELECT id, email, name, role, "createdAt" FROM users WHERE id = $1',
       [id]
     );

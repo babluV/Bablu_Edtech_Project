@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { NextRequest, NextResponse } from "next/server";
 import { createUser } from "@/lib/data";
 import { RegisterData } from "@/types/user";

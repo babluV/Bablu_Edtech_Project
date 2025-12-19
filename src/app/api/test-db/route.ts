@@ -1,8 +1,11 @@
+export const dynamic = "force-dynamic";
+
 import { NextResponse } from "next/server";
-import pool from "@/lib/db";
+import { getPool } from "@/lib/db";
 
 export async function GET() {
   try {
+    const pool = getPool();
     // Test database connection
     const result = await pool.query("SELECT NOW() as current_time, version() as version");
     
