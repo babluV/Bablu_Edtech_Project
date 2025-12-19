@@ -1,13 +1,18 @@
 import { Pool } from 'pg';
 
 // Create a connection pool
-const pool = new Pool({
-  host: process.env.POSTGRES_HOST || 'localhost',
-  port: parseInt(process.env.POSTGRES_PORT || '5432'),
-  database: process.env.POSTGRES_DATABASE || 'edTech',
-  user: process.env.POSTGRES_USER || 'postgres',
-  password: process.env.POSTGRES_PASSWORD || '',
-});
+const poolConfig: any = {
+  connectionString: process.env.DATABASE_URL,
+};
+
+// Add SSL configuration if DATABASE_URL is provided (typically needed for cloud databases)
+if (process.env.DATABASE_URL) {
+  poolConfig.ssl = {
+    rejectUnauthorized: false,
+  };
+}
+
+const pool = new Pool(poolConfig);
 
 // Test the connection
 pool.on('connect', () => {

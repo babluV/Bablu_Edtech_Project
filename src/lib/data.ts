@@ -206,7 +206,7 @@ export async function deleteCourse(id: string): Promise<boolean> {
 export async function getUserByEmail(email: string): Promise<UserWithPassword | undefined> {
   try {
     const result = await pool.query(
-      'SELECT id, email, name, password, role, "createdAt" FROM users WHERE email = $1',
+      'SELECT id, email, name, password, role, "createdAt" FROM users WHERE LOWER(email) = LOWER($1)',
       [email]
     );
     if (result.rows.length === 0) {
@@ -252,6 +252,12 @@ export async function getUserById(id: string): Promise<User | undefined> {
 
 export async function createUser(userData: RegisterData): Promise<User> {
   try {
+    // Check if user already exists (case-insensitive)
+    const existingUser = await getUserByEmail(userData.email);
+    if (existingUser) {
+      throw new Error("User with this email already exists");
+    }
+
     const id = Date.now().toString();
     const hashedPassword = await hashPassword(userData.password);
     const role = userData.role || "student";
