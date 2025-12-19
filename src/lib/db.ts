@@ -34,16 +34,7 @@ export function getPool() {
       console.log("Added sslmode=require to connection string");
     }
 
-    const poolConfig: any = {
-      connectionString: finalConnectionString,
-      // Optimize for serverless environments (Netlify functions)
-      max: 1, // Limit connections for serverless
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 10000,
-    };
-
-    // Always enable SSL for production/cloud databases
-    // Most cloud databases (Neon, Supabase, Railway, Render, etc.) require SSL
+    // Detect cloud databases (Neon, Supabase, etc.) - these ALWAYS require SSL
     const isCloudDatabase = connectionString.includes('amazonaws.com') ||
                             connectionString.includes('neon.tech') ||
                             connectionString.includes('supabase.co') ||
@@ -53,8 +44,23 @@ export function getPool() {
                             connectionString.includes('planetscale.com') ||
                             connectionString.includes('cockroachlabs.com');
 
-    // Always use SSL in production or for cloud databases
-    if (isCloudDatabase || process.env.NODE_ENV === 'production' || !hasSSLMode) {
+    const poolConfig: any = {
+      connectionString: finalConnectionString,
+      // Optimize for serverless environments (Netlify functions)
+      max: 1, // Limit connections for serverless
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    };
+
+    // ALWAYS enable SSL for cloud databases (Neon, Supabase, etc.) and production
+    // Even if sslmode=require is in the connection string, we need to explicitly set SSL config
+    if (isCloudDatabase || process.env.NODE_ENV === 'production') {
+      poolConfig.ssl = {
+        rejectUnauthorized: false,
+      };
+      console.log("SSL enabled for database connection (cloud database detected)");
+    } else if (!hasSSLMode) {
+      // For local development, only enable SSL if not specified
       poolConfig.ssl = {
         rejectUnauthorized: false,
       };
