@@ -9,12 +9,19 @@ import UserModel from "@/models/User";
 import sequelize from "@/lib/sequelize";
 import "@/models/index";
 
-// Initialize database schema
+// Initialize database schema (called lazily when needed, not at module load)
+let schemaInitialized = false;
+
 async function initializeDatabase() {
+  if (schemaInitialized) {
+    return;
+  }
+
   try {
     const schemaPath = join(process.cwd(), "src/lib/schema.sql");
     const schema = readFileSync(schemaPath, "utf-8");
     await getPool().query(schema);
+    schemaInitialized = true;
   } catch (error) {
     // If schema file doesn't exist or table already exists, that's okay
     // Try to create table directly
@@ -45,16 +52,16 @@ async function initializeDatabase() {
         );
         CREATE INDEX IF NOT EXISTS idx_courses_id ON courses(id);
       `);
+      schemaInitialized = true;
     } catch (err) {
       console.error("Database initialization error:", err);
+      // Don't throw, allow operations to continue
     }
   }
 }
 
-// Initialize on module load
-initializeDatabase();
-
 export async function getAllCourses(): Promise<Course[]> {
+  await initializeDatabase();
   try {
     const result = await getPool().query(
       'SELECT id, title, description, instructor, duration, price, "createdAt" FROM courses ORDER BY "createdAt" DESC'
@@ -75,6 +82,7 @@ export async function getAllCourses(): Promise<Course[]> {
 }
 
 export async function getCourseById(id: string): Promise<Course | undefined> {
+  await initializeDatabase();
   try {
     const result = await getPool().query(
       'SELECT id, title, description, instructor, duration, price, "createdAt" FROM courses WHERE id = $1',
@@ -102,6 +110,7 @@ export async function getCourseById(id: string): Promise<Course | undefined> {
 export async function createCourse(
   course: Omit<Course, "id" | "createdAt">
 ): Promise<Course> {
+  await initializeDatabase();
   try {
     const id = Date.now().toString();
     const createdAt = new Date().toISOString();
@@ -134,6 +143,7 @@ export async function updateCourse(
   id: string,
   updates: Partial<Omit<Course, "id" | "createdAt">>
 ): Promise<Course | null> {
+  await initializeDatabase();
   try {
     // Build dynamic update query
     const fields: string[] = [];
@@ -193,6 +203,7 @@ export async function updateCourse(
 }
 
 export async function deleteCourse(id: string): Promise<boolean> {
+  await initializeDatabase();
   try {
     const result = await getPool().query("DELETE FROM courses WHERE id = $1", [id]);
     return result.rowCount !== null && result.rowCount > 0;
@@ -204,6 +215,7 @@ export async function deleteCourse(id: string): Promise<boolean> {
 
 // User functions
 export async function getUserByEmail(email: string): Promise<UserWithPassword | undefined> {
+  await initializeDatabase();
   try {
     const result = await getPool().query(
       'SELECT id, email, name, password, role, "createdAt" FROM users WHERE LOWER(email) = LOWER($1)',
@@ -228,6 +240,7 @@ export async function getUserByEmail(email: string): Promise<UserWithPassword | 
 }
 
 export async function getUserById(id: string): Promise<User | undefined> {
+  await initializeDatabase();
   try {
     const result = await getPool().query(
       'SELECT id, email, name, role, "createdAt" FROM users WHERE id = $1',
@@ -251,6 +264,7 @@ export async function getUserById(id: string): Promise<User | undefined> {
 }
 
 export async function createUser(userData: RegisterData): Promise<User> {
+  await initializeDatabase();
   try {
     // Check if user already exists (case-insensitive)
     const existingUser = await getUserByEmail(userData.email);

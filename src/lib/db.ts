@@ -4,12 +4,30 @@ let pool: Pool | null = null;
 
 export function getPool() {
   if (!pool) {
+    // Validate DATABASE_URL is set
+    if (!process.env.DATABASE_URL) {
+      throw new Error(
+        "DATABASE_URL environment variable is not set. " +
+        "Please configure it in your deployment platform's environment variables."
+      );
+    }
+
     const poolConfig: any = {
       connectionString: process.env.DATABASE_URL,
     };
 
-    // Add SSL configuration if DATABASE_URL is provided (typically needed for cloud databases)
-    if (process.env.DATABASE_URL) {
+    // Add SSL configuration for cloud databases (most production databases require SSL)
+    // Check if connection string already has SSL parameters
+    const connectionString = process.env.DATABASE_URL.toLowerCase();
+    const needsSSL = connectionString.includes('sslmode=require') || 
+                     connectionString.includes('sslmode=prefer') ||
+                     connectionString.includes('amazonaws.com') ||
+                     connectionString.includes('neon.tech') ||
+                     connectionString.includes('supabase.co') ||
+                     connectionString.includes('railway.app') ||
+                     connectionString.includes('render.com');
+
+    if (needsSSL || process.env.NODE_ENV === 'production') {
       poolConfig.ssl = {
         rejectUnauthorized: false,
       };
@@ -24,7 +42,10 @@ export function getPool() {
 
     pool.on('error', (err) => {
       console.error('Unexpected error on idle client', err);
-      process.exit(-1);
+      // Don't exit in production, just log the error
+      if (process.env.NODE_ENV !== 'production') {
+        process.exit(-1);
+      }
     });
   }
 
